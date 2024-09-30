@@ -6,7 +6,7 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/28 12:22:04 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/09/29 21:07:22 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/09/30 08:52:45 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -355,8 +355,6 @@ static void ft_execute_parent_process(t_micro_shell *shell)
 	}
 }
 
-
-
 // Prépare le pipe si nécessaire
 static void ft_prepare_pipe(t_micro_shell *shell)
 {
@@ -492,6 +490,9 @@ static void ft_initialize_micro_shell(t_micro_shell *shell, int argc, char **arg
 
 /*
 clang -g3 -Wall -Werror -Wextra -o microshell microshell.c && valgrind --leak-check=full --show-leak-kinds=all --track-fds=yes --show-reachable=yes --track-origins=yes ./microshell
+
+ ./microshell "/bin/yes" "|" "head" "-n" "20"
+ ./microshell "/bin/echo" "a" "|" "/bin/cat" "-e" "|" "/bin/wc" "-l" ";" "/bin/cat"
 */
 int main(int argc, char **argv, char **envp)
 {
