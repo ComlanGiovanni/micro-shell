@@ -11,6 +11,8 @@
 		"vector": "c",
 		"string_view": "c",
 		"initializer_list": "c",
-		"stdio.h": "c"
+		"stdio.h": "c",
+		"stddef.h": "c",
+		"unistd.h": "c"
 	}
 }

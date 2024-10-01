@@ -5,143 +5,179 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/30 11:44:56 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/01 10:12:37 by gicomlan         ###   ########.fr       */
+/*   Created: 2024/10/01 10:15:32 by gicomlan          #+#    #+#             */
+/*   Updated: 2024/10/01 16:22:22 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <unistd.h>		// write,fork,execve,dup2,close,chdir,STDERR_FILENO
-#include <sys/wait.h>	// waitpid pid_t
-#include <stdlib.h>		// malloc, free, exit, EXIT_FAILURE, EXIT_SUCCESS
+//#include <stddef.h>	// NULL
 #include <string.h>		// strcmp
+#include <stdbool.h>	// bool
+#include <sys/wait.h>	// waitpid pid_t WIFEXITED WEXITSTATUS
+#include <stdlib.h>		// malloc, free, exit, EXIT_FAILURE, EXIT_SUCCESS
+#include <unistd.h>		// write,fork,execve,dup2,close,chdir,STDERR_FILENO
 
 #define PIPE				"|"
 #define SEMICOLON			";"
 #define CHANGE_DIRECTORY	"cd"
-
-#define ERROR				"error: "
 #define FATAL				"fatal"
-#define CD_BAD_ARG			"cd: bad arguments"
-#define CD_FAIL				"error: cd: cannot change directory to "
-#define EXECVE_FAIL			"error: cannot execute "
+#define ERROR				"error: "
+#define CD					"cd: "
+#define CD_BAD_ARG			"bad arguments"
+#define EXECVE_FAIL			"cannot execute"
+#define CD_FAIL				"cannot change directory to "
 
-typedef enum e_pipe_fd
+typedef enum e_pipes_fd
 {
 	PIPE_INPUT = 0x0,
 	PIPE_OUTPUT = 0x1,
-	PIPE_FD = 0x2
-} t_pipe_fd;
+	PIPE_FD	= 0x2
+}	t_pipes_fds;
 
+// typedef struct s_main
+// {
+// 	char	**argv;
+// 	char	**envp;
+// 	int	 argc;
+// }	t_main;
 
-size_t	ft_strlen(char *string)
+// typedef struct s_micro_shell
+// {
+// 	t_main			main;
+// 	pid_t			pid;
+// 	int				index;
+// 	bool			is_pipe;
+// 	int				exit_code;
+// 	int				pipes_fds[PIPE_FD];
+// }	t_micro_shell;
+
+size_t	ft_strlen(char *str)
 {
-	const char	*last_char_in_string;
+	const char	*end_str;
 
-	if (!string)
+	if (!str)
 		return (0x0);
-	last_char_in_string = string;
-	while (*last_char_in_string)
-		last_char_in_string++;
-	return (last_char_in_string - string);
+	end_str = str;
+	while (*end_str)
+		end_str++;
+	return (end_str - str);
 }
 
-static void	ft_putstr_fd(char *string, int fd)
+static void	ft_putstr_fd(char *str, int fd)
 {
-	if (!string)
-		string = "(null)";
-	if (fd >= 0x0)
-		write(fd, string, ft_strlen(string));
+	if (str)
+		if (fd >= 0x0)
+			write(fd, str, ft_strlen(str));
 }
 
-static void	ft_error_message(char *prefix, char *message, char *suffix)
+static void	ft_error_msg(char *pref, char *suff, char *radi, char *msg)
 {
-	if (prefix)
-		ft_putstr_fd(prefix, STDERR_FILENO);
-	if (message)
-		ft_putstr_fd(message, STDERR_FILENO);
-	if (suffix)
-		ft_putstr_fd(suffix, STDERR_FILENO);
+	if (pref)
+		ft_putstr_fd(pref, STDERR_FILENO);
+	if (suff)
+		ft_putstr_fd(suff, STDERR_FILENO);
+	if (radi)
+		ft_putstr_fd(radi, STDERR_FILENO);
+	if (msg)
+		ft_putstr_fd(msg, STDERR_FILENO);
 	ft_putstr_fd("\n", STDERR_FILENO);
 }
 
-static void	ft_exit_with_error(char *message, char *arg)
+static void	ft_exit_error(char *pref, char *suff, char *radi)
 {
-	ft_error_message(message, arg, NULL);
+	ft_error_msg(pref, suff, radi, NULL);
 	exit(EXIT_FAILURE);
 }
 
-static int	ft_execute_cd(char **arg, int arg_count)
+static void	ft_redirect_pipe(bool is_pipe, int *pipes_fd, int direction)
 {
-	if (arg_count != 0x2)
+	if (is_pipe)
 	{
-		ft_error_message(ERROR, CD_BAD_ARG, NULL);
+		if (dup2(pipes_fd[direction], direction) == -1)
+			ft_exit_error(ERROR, FATAL, NULL);
+		if ((close(pipes_fd[PIPE_INPUT]) == -(0x1)) || \
+			(close(pipes_fd[PIPE_OUTPUT]) == -(0x1)))
+			ft_exit_error(ERROR, FATAL, NULL);
+	}
+}
+
+static int	ft_exec_cd(char **argv, int index)
+{
+	if (index != 0x2)
+	{
+		ft_error_msg(ERROR, CD, CD_BAD_ARG, NULL);
 		return (EXIT_FAILURE);
 	}
-	if (chdir(arg[0x1]) == -1)
+	if (chdir(argv[0x1]) == -0x1)
 	{
-		ft_error_message(CD_FAIL, arg[1], NULL);
+		ft_error_msg(ERROR, CD, CD_FAIL, argv[0x1]);
 		return (EXIT_FAILURE);
 	}
 	return (EXIT_SUCCESS);
 }
 
-static void	ft_redirect_pipe_streams(int is_pipe, int *pipes_fds, int pipe_direction)
+static bool ft_is_cd(char *str)
 {
-	if (is_pipe)
-	{
-		if (dup2(pipes_fds[pipe_direction], pipe_direction) == -1)
-			ft_exit_with_error(ERROR, FATAL);
-		if (close(pipes_fds[0]) == -1 || close(pipes_fds[1]) == -1)
-			ft_exit_with_error(ERROR, FATAL);
-	}
+	return ((strcmp(str, CHANGE_DIRECTORY)));
 }
 
-static int	ft_execute_command(char **arguments, int index, char **env)
+static bool ft_is_pipe(char *str)
 {
-	int			is_pipe;
-	int			pipes_fds[PIPE_FD];
-	int			code;
-	pid_t		pid;
+	return ((strcmp(str, PIPE)));
+}
 
-	is_pipe = arguments[index] && !strcmp(arguments[index], PIPE);
-	if (!is_pipe && !strcmp(*arguments, CHANGE_DIRECTORY))
-		return (ft_execute_cd(arguments, index));
+static bool ft_is_semicolon(char *str)
+{
+	return ((strcmp(str, SEMICOLON)));
+}
+
+static int	ft_exec_cmd(char **argv, int index, char **envp)
+{
+	pid_t	pid;
+	bool	is_pipe;
+	int		exit_code;
+	int		pipes_fds[PIPE_FD];
+
+	is_pipe = (argv[index] && !ft_is_pipe(argv[index]));
+	if (!is_pipe && !ft_is_cd(*argv))
+		return (ft_exec_cd(argv, index));
 	if (is_pipe && pipe(pipes_fds) == -1)
-		ft_exit_with_error(ERROR, FATAL);
+		ft_exit_error(ERROR, FATAL, NULL);
 	pid = fork();
 	if (pid == -1)
-		ft_exit_with_error(ERROR, FATAL);
+		ft_exit_error(ERROR, FATAL, NULL);
 	if (pid == 0x0)
 	{
-		arguments[index] = NULL;
-		ft_redirect_pipe_streams(is_pipe, pipes_fds, STDOUT_FILENO);
-		if (!strcmp(*arguments, CHANGE_DIRECTORY))
-			exit(ft_execute_cd(arguments, index));
-		execve(arguments[0], arguments, env);
-		ft_exit_with_error(EXECVE_FAIL, arguments[0x0]);
+		argv[index] = NULL;
+		ft_redirect_pipe(is_pipe, pipes_fds, STDOUT_FILENO);
+		if (!ft_is_cd(*argv))
+			exit(ft_exec_cd(argv, index));
+		execve(argv[0x0], argv, envp);
+		ft_exit_error(ERROR, EXECVE_FAIL, argv[0x0]);
 	}
-	waitpid(pid, &code, 0x0);
-	ft_redirect_pipe_streams(is_pipe, pipes_fds, STDIN_FILENO);
-	return (WIFEXITED(code) && WEXITSTATUS(code));
+	waitpid(pid, &exit_code, 0x0);
+	ft_redirect_pipe(is_pipe, pipes_fds, STDIN_FILENO);
+	return (WIFEXITED(exit_code) && WEXITSTATUS(exit_code));
 }
 
-int	main(int argc, char **argv, char **env)
+int	main(int argc, char **argv, char **envp)
 {
 	int	index;
-	int	code;
+	int	exit_code;
 
 	(void)argc;
 	index = 0x0;
-	code = 0x0;
-	while (argv[index])
+	exit_code = EXIT_SUCCESS;
+	while (argv[index] != NULL)
 	{
-		argv += index + 0x1;
-		index = 0x0;
+		argv += index + (0x1);
+		index = (0x0);
 		while (argv[index] && \
-			strcmp(argv[index], PIPE) && strcmp(argv[index], SEMICOLON))
+			ft_is_pipe(argv[index]) && \
+				ft_is_semicolon(argv[index]))
 			index++;
 		if (index)
-			code = ft_execute_command(argv, index, env);
+			exit_code = ft_exec_cmd(argv, index, envp);
 	}
-	return (code);
+	return (exit_code);
 }
