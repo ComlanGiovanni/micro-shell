@@ -6,11 +6,11 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/28 12:22:04 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/09/30 08:52:45 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/09/30 19:08:23 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <unistd.h>	 // write, fork, execve, dup2, close, chdir, STDERR_FILENO
+#include <unistd.h>	 // write, fork, execve, dup2, close, chdir, STDERR_FILENO NULL
 #include <sys/wait.h>   // waitpid pid_t inside types
 //#include <sys/types.h> //pid_t
 #include <stdlib.h>	 // malloc, free, exit, EXIT_FAILURE, EXIT_SUCCESS
