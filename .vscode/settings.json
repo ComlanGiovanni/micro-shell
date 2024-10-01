@@ -13,6 +13,7 @@
 		"initializer_list": "c",
 		"stdio.h": "c",
 		"stddef.h": "c",
-		"unistd.h": "c"
+		"unistd.h": "c",
+		"stdbool.h": "c"
 	}
 }
