@@ -1,12 +1,12 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   refactor-atomic.c                                  :+:      :+:    :+:   */
+/*   microshell.c                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
+/*   By: pfischof <pfischof@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/01 10:15:32 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/01 16:22:22 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/10/01 17:05:22 by pfischof         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,29 +27,49 @@
 #define EXECVE_FAIL			"cannot execute"
 #define CD_FAIL				"cannot change directory to "
 
+#define INVALID_FD			-1
+#define PIPES_NUMBER		2
+
 typedef enum e_pipes_fd
 {
-	PIPE_INPUT = 0x0,
-	PIPE_OUTPUT = 0x1,
-	PIPE_FD	= 0x2
+	PIPE_INPUT,
+	PIPE_OUTPUT,
 }	t_pipes_fds;
 
-// typedef struct s_main
-// {
-// 	char	**argv;
-// 	char	**envp;
-// 	int	 argc;
-// }	t_main;
+typedef struct s_main
+{
+	char	**argv;
+	char	**envp;
+	int		 argc;
+}	t_main;
 
-// typedef struct s_micro_shell
-// {
-// 	t_main			main;
-// 	pid_t			pid;
-// 	int				index;
-// 	bool			is_pipe;
-// 	int				exit_code;
-// 	int				pipes_fds[PIPE_FD];
-// }	t_micro_shell;
+typedef struct s_micro
+{
+	t_main			main;
+	pid_t			pid;
+	int				index;
+	bool			is_pipe;
+	int				exit_code;
+	int				pipes_fds[PIPES_NUMBER];
+}	t_micro;
+
+void	ft_init_main(t_main *main, int argc, char **argv, char **envp)
+{
+	main->argc = argc;
+	main->argv = argv;
+	main->envp = envp;
+}
+
+void	ft_init_micro(int argc, char **argv, char **envp, t_micro *shell)
+{
+	ft_init_main(&shell->main, argc, argv, envp);
+	shell->pid = getpid();
+	shell->index = 0;
+	shell->is_pipe = false;
+	shell->exit_code = EXIT_SUCCESS;
+	shell->pipes_fds[PIPE_INPUT] = INVALID_FD;
+	shell->pipes_fds[PIPE_OUTPUT] = INVALID_FD;
+}
 
 size_t	ft_strlen(char *str)
 {
@@ -89,28 +109,28 @@ static void	ft_exit_error(char *pref, char *suff, char *radi)
 	exit(EXIT_FAILURE);
 }
 
-static void	ft_redirect_pipe(bool is_pipe, int *pipes_fd, int direction)
+static void	ft_redirect_pipe(t_micro *shell, int direction)
 {
-	if (is_pipe)
+	if (shell->is_pipe)
 	{
-		if (dup2(pipes_fd[direction], direction) == -1)
+		if (dup2(shell->pipes_fds[direction], direction) == -1)
 			ft_exit_error(ERROR, FATAL, NULL);
-		if ((close(pipes_fd[PIPE_INPUT]) == -(0x1)) || \
-			(close(pipes_fd[PIPE_OUTPUT]) == -(0x1)))
+		if ((close(shell->pipes_fds[PIPE_INPUT]) == -(0x1)) || \
+			(close(shell->pipes_fds[PIPE_OUTPUT]) == -(0x1)))
 			ft_exit_error(ERROR, FATAL, NULL);
 	}
 }
 
-static int	ft_exec_cd(char **argv, int index)
+static int	ft_exec_cd(t_micro *shell)
 {
-	if (index != 0x2)
+	if (shell->index != 0x2)
 	{
 		ft_error_msg(ERROR, CD, CD_BAD_ARG, NULL);
 		return (EXIT_FAILURE);
 	}
-	if (chdir(argv[0x1]) == -0x1)
+	if (chdir(shell->main.argv[0x1]) == -0x1)
 	{
-		ft_error_msg(ERROR, CD, CD_FAIL, argv[0x1]);
+		ft_error_msg(ERROR, CD, CD_FAIL, shell->main.argv[0x1]);
 		return (EXIT_FAILURE);
 	}
 	return (EXIT_SUCCESS);
@@ -131,53 +151,45 @@ static bool ft_is_semicolon(char *str)
 	return ((strcmp(str, SEMICOLON)));
 }
 
-static int	ft_exec_cmd(char **argv, int index, char **envp)
+static int	ft_exec_cmd(t_micro *shell)
 {
-	pid_t	pid;
-	bool	is_pipe;
-	int		exit_code;
-	int		pipes_fds[PIPE_FD];
-
-	is_pipe = (argv[index] && !ft_is_pipe(argv[index]));
-	if (!is_pipe && !ft_is_cd(*argv))
-		return (ft_exec_cd(argv, index));
-	if (is_pipe && pipe(pipes_fds) == -1)
+	shell->is_pipe = (shell->main.argv[shell->index] && !ft_is_pipe(shell->main.argv[shell->index]));
+	if (!shell->is_pipe && !ft_is_cd(*shell->main.argv))
+		return (ft_exec_cd(shell));
+	if (shell->is_pipe && pipe(shell->pipes_fds) == -1)
 		ft_exit_error(ERROR, FATAL, NULL);
-	pid = fork();
-	if (pid == -1)
+	shell->pid = fork();
+	if (shell->pid == -1)
 		ft_exit_error(ERROR, FATAL, NULL);
-	if (pid == 0x0)
+	if (shell->pid == 0x0)
 	{
-		argv[index] = NULL;
-		ft_redirect_pipe(is_pipe, pipes_fds, STDOUT_FILENO);
-		if (!ft_is_cd(*argv))
-			exit(ft_exec_cd(argv, index));
-		execve(argv[0x0], argv, envp);
-		ft_exit_error(ERROR, EXECVE_FAIL, argv[0x0]);
+		shell->main.argv[shell->index] = NULL;
+		ft_redirect_pipe(shell, STDOUT_FILENO);
+		if (!ft_is_cd(*shell->main.argv))
+			exit(ft_exec_cd(shell));
+		execve(shell->main.argv[0x0], shell->main.argv, shell->main.envp);
+		ft_exit_error(ERROR, EXECVE_FAIL, shell->main.argv[0x0]);
 	}
-	waitpid(pid, &exit_code, 0x0);
-	ft_redirect_pipe(is_pipe, pipes_fds, STDIN_FILENO);
-	return (WIFEXITED(exit_code) && WEXITSTATUS(exit_code));
+	waitpid(shell->pid, &shell->exit_code, 0x0);
+	ft_redirect_pipe(shell, STDIN_FILENO);
+	return (WIFEXITED(shell->exit_code) && WEXITSTATUS(shell->exit_code));
 }
 
 int	main(int argc, char **argv, char **envp)
 {
-	int	index;
-	int	exit_code;
+	t_micro	shell;
 
-	(void)argc;
-	index = 0x0;
-	exit_code = EXIT_SUCCESS;
-	while (argv[index] != NULL)
+	ft_init_micro(argc, argv, envp, &shell);
+	while (shell.main.argv[shell.index] != NULL)
 	{
-		argv += index + (0x1);
-		index = (0x0);
-		while (argv[index] && \
-			ft_is_pipe(argv[index]) && \
-				ft_is_semicolon(argv[index]))
-			index++;
-		if (index)
-			exit_code = ft_exec_cmd(argv, index, envp);
+		shell.main.argv += shell.index + (0x1);
+		shell.index = (0x0);
+		while (shell.main.argv[shell.index] && \
+			ft_is_pipe(shell.main.argv[shell.index]) && \
+				ft_is_semicolon(shell.main.argv[shell.index]))
+			shell.index++;
+		if (shell.index)
+			shell.exit_code = ft_exec_cmd(&shell);
 	}
-	return (exit_code);
+	return (shell.exit_code);
 }
