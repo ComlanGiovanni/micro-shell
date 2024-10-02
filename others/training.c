@@ -6,7 +6,7 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/02 08:34:19 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/02 12:55:12 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/10/02 12:57:37 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -67,17 +67,17 @@ struct s_micro
 
 static inline bool	ft_is_pipe(char *str)
 {
-	return (strcmp(str, PIPE));
+	return (!(strcmp(str, PIPE)));
 }
 
 static inline bool	ft_is_cd(char *str)
 {
-	return (strcmp(str, CHANGE_DIRECTORY));
+	return (!(strcmp(str, CHANGE_DIRECTORY)));
 }
 
 static inline bool	ft_is_semicolon(char *str)
 {
-	return (strcmp(str, SEMICOLON));
+	return (!(strcmp(str, SEMICOLON)));
 }
 
 static size_t	ft_strlen(char *str)
@@ -171,7 +171,7 @@ static void	ft_redirect_pipe(t_micro *shell, int direction)
 static void	ft_check_if_pipe(t_micro *shell)
 {
 	shell->pipe.is_pipe = (shell->main.argv[shell->index] && \
-		!ft_is_pipe(shell->main.argv[shell->index]));
+		ft_is_pipe(shell->main.argv[shell->index]));
 }
 
 static void	ft_exec_child(t_micro *shell)
@@ -180,7 +180,7 @@ static void	ft_exec_child(t_micro *shell)
 	{
 		shell->main.argv[shell->index] = NULL;
 		ft_redirect_pipe(shell, STDOUT_FILENO);
-		if (!ft_is_cd(*shell->main.argv))
+		if (ft_is_cd(*shell->main.argv))
 			exit(ft_exec_cd(shell));
 		execve(shell->main.argv[(0x0)], shell->main.argv, shell->main.envp);
 		ft_exit_error(ERROR, EXECVE_FAIL, shell->main.argv[(0x0)]);
@@ -190,7 +190,7 @@ static void	ft_exec_child(t_micro *shell)
 static int	ft_exec_cmd(t_micro *shell)
 {
 	ft_check_if_pipe(shell);
-	if (!shell->pipe.is_pipe && !ft_is_cd(*shell->main.argv))
+	if (!shell->pipe.is_pipe && ft_is_cd(*shell->main.argv))
 		return (ft_exec_cd(shell));
 	if (shell->pipe.is_pipe && pipe(shell->pipe.pipes_fds) == -(0x1))
 		ft_exit_error(ERROR, FATAL, NULL);
@@ -213,8 +213,8 @@ int	main(int argc, char **argv, char **envp)
 		shell.main.argv += shell.index + (0x1);
 		shell.index = (0x0);
 		while (shell.main.argv[shell.index] && \
-			ft_is_pipe(shell.main.argv[shell.index]) && \
-				ft_is_semicolon(shell.main.argv[shell.index]))
+			!ft_is_pipe(shell.main.argv[shell.index]) && \
+				!ft_is_semicolon(shell.main.argv[shell.index]))
 			shell.index++;
 		if (shell.index)
 			shell.exit_code = ft_exec_cmd(&shell);
