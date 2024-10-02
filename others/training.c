@@ -5,8 +5,8 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/10/01 18:08:42 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/01 18:52:12 by gicomlan         ###   ########.fr       */
+/*   Created: 2024/10/02 08:34:19 by gicomlan          #+#    #+#             */
+/*   Updated: 2024/10/02 09:31:49 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,6 +29,7 @@
 typedef enum e_pipes_fd	t_pipes_fds;
 typedef struct s_main	t_main;
 typedef struct s_micro	t_micro;
+typedef struct s_pipe	t_pipe;
 
 enum e_pipes_fd
 {
@@ -45,27 +46,32 @@ struct s_main
 	char	**envp;
 };
 
+struct s_pipe
+{
+	bool	is_pipe;
+	int		pipes_fds[FD_NUMBER];
+};
+
 struct s_micro
 {
 	pid_t	pid;
 	t_main	main;
+	t_pipe	pipe;
 	int		index;
-	bool	is_pipe;
 	int		exit_code;
-	int		pipes_fd[FD_NUMBER];
 };
 
-static	bool	ft_is_pipe(char *str)
+static bool	ft_is_pipe(char *str)
 {
 	return (strcmp(str, PIPE));
 }
 
-static	bool	ft_is_cd(char *str)
+static bool	ft_is_cd(char *str)
 {
 	return (strcmp(str, CHANGE_DIRECTORY));
 }
 
-static	bool	ft_is_semicolon(char *str)
+static bool	ft_is_semicolon(char *str)
 {
 	return (strcmp(str, SEMICOLON));
 }
@@ -115,14 +121,19 @@ static void	ft_init_main(t_main *main, int argc, char **argv, char **envp)
 	main->envp = envp;
 }
 
+static void	ft_init_pipe(t_pipe *pipe)
+{
+	pipe->is_pipe = false;
+	pipe->pipes_fds[PIPE_INPUT] = INVALID_FD;
+	pipe->pipes_fds[PIPE_OUTPUT] = INVALID_FD;
+}
+
 static void	ft_init_shell(t_micro *shell, int argc, char **argv, char **envp)
 {
 	shell->index = (0x0);
 	shell->pid = getpid();
-	shell->is_pipe = false;
+	ft_init_pipe(&shell->pipe);
 	shell->exit_code = EXIT_SUCCESS;
-	shell->pipes_fd[PIPE_INPUT] = INVALID_FD;
-	shell->pipes_fd[PIPE_OUTPUT] = INVALID_FD;
 	ft_init_main(&shell->main, argc, argv, envp);
 }
 
@@ -143,27 +154,24 @@ static int	ft_exec_cd(t_micro *shell)
 
 static void	ft_redirect_pipe(t_micro *shell, int direction)
 {
-	if (shell->is_pipe)
+	if (shell->pipe.is_pipe)
 	{
-		if (dup2(shell->pipes_fd[direction], direction) == -(0x1))
+		if (dup2(shell->pipe.pipes_fds[direction], direction) == -(0x1))
 			ft_exit_error(ERROR, FATAL, NULL);
-		if ((close(shell->pipes_fd[PIPE_INPUT]) == -(0x1)) || \
-			(close(shell->pipes_fd[PIPE_OUTPUT]) == -(0x1)))
+		if ((close(shell->pipe.pipes_fds[PIPE_INPUT]) == -(0x1)) || \
+			close(shell->pipe.pipes_fds[PIPE_OUTPUT]) == -(0x1))
 			ft_exit_error(ERROR, FATAL, NULL);
 	}
 }
 
-static	int	ft_exec_cmd(t_micro *shell)
+static void	ft_check_if_pipe(t_micro *shell)
 {
-	shell->is_pipe = (shell->main.argv[shell->index] && \
-		!ft_is_pipe(shell->main.argv[shell->index]));
-	if (!shell->is_pipe && !ft_is_cd(*shell->main.argv))
-		return (ft_exec_cd(shell));
-	if (shell->is_pipe && pipe(shell->pipes_fd) == -(0x1))
-		ft_exit_error(ERROR, FATAL, NULL);
-	shell->pid = fork();
-	if (shell->pid == -(0x1))
-		ft_exit_error(ERROR, FATAL, NULL);
+	shell->pipe.is_pipe = (shell->main.argv[shell->index] && \
+	!ft_is_pipe(shell->main.argv[shell->index]));
+}
+
+static void	ft_exec_child(t_micro *shell)
+{
 	if (shell->pid == (0x0))
 	{
 		shell->main.argv[shell->index] = NULL;
@@ -173,6 +181,19 @@ static	int	ft_exec_cmd(t_micro *shell)
 		execve(shell->main.argv[(0x0)], shell->main.argv, shell->main.envp);
 		ft_exit_error(ERROR, EXECVE_FAIL, shell->main.argv[(0x0)]);
 	}
+}
+
+static int	ft_exec_cmd(t_micro *shell)
+{
+	ft_check_if_pipe(shell);
+	if (!shell->pipe.is_pipe && !ft_is_cd(*shell->main.argv))
+		return (ft_exec_cd(shell));
+	if (shell->pipe.is_pipe && pipe(shell->pipe.pipes_fds) == -(0x1))
+		ft_exit_error(ERROR, FATAL, NULL);
+	shell->pid = fork();
+	if (shell->pid == -(0x1))
+		ft_exit_error(ERROR, FATAL, NULL);
+	ft_exec_child(shell);
 	waitpid(shell->pid, &shell->exit_code, (0x0));
 	ft_redirect_pipe(shell, STDIN_FILENO);
 	return (WIFEXITED(shell->exit_code) && WEXITSTATUS(shell->exit_code));
