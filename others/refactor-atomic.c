@@ -6,7 +6,7 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/02 08:34:19 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/02 09:31:56 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/10/02 09:35:59 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,6 +15,10 @@
 #include <sys/wait.h>	// waitpid pid_t WIFEXITED WEXITSTATUS
 #include <stdlib.h>		// malloc, free, exit, EXIT_FAILURE, EXIT_SUCCESS
 #include <unistd.h>		// write,fork,execve,dup2,close,chdir,STDERR_FILENO
+
+#define IS_PIPE(str) (strcmp((str), PIPE) == 0)
+#define IS_CD(str) (strcmp((str), CHANGE_DIRECTORY) == 0)
+#define IS_SEMICOLON(str) (strcmp((str), SEMICOLON) == 0)
 
 #define PIPE				"|"
 #define SEMICOLON			";"
@@ -131,7 +135,7 @@ static void	ft_init_pipe(t_pipe *pipe)
 static void	ft_init_shell(t_micro *shell, int argc, char **argv, char **envp)
 {
 	shell->index = (0x0);
-	shell->pid = getpid();
+	shell->pid = -1;
 	ft_init_pipe(&shell->pipe);
 	shell->exit_code = EXIT_SUCCESS;
 	ft_init_main(&shell->main, argc, argv, envp);
