@@ -6,7 +6,7 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/02 08:34:19 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/02 09:42:07 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/10/02 12:55:13 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,9 +16,9 @@
 #include <stdlib.h>		// malloc, free, exit, EXIT_FAILURE, EXIT_SUCCESS
 #include <unistd.h>		// write,fork,execve,dup2,close,chdir,STDERR_FILENO
 
-#define FT_IS_PIPE(str) (strcmp((str), PIPE) == 0)
-#define FT_IS_CD(str) (strcmp((str), CHANGE_DIRECTORY) == 0)
-#define FT_IS_SEMICOLON(str) (strcmp((str), SEMICOLON) == 0)
+// #define FT_IS_PIPE(str) (strcmp((str), PIPE) == 0)
+// #define FT_IS_CD(str) (strcmp((str), CHANGE_DIRECTORY) == 0)
+// #define FT_IS_SEMICOLON(str) (strcmp((str), SEMICOLON) == 0)
 
 #define PIPE				"|"
 #define SEMICOLON			";"
@@ -171,7 +171,7 @@ static void	ft_redirect_pipe(t_micro *shell, int direction)
 static void	ft_check_if_pipe(t_micro *shell)
 {
 	shell->pipe.is_pipe = (shell->main.argv[shell->index] && \
-	!ft_is_pipe(shell->main.argv[shell->index]));
+		!ft_is_pipe(shell->main.argv[shell->index]));
 }
 
 static void	ft_exec_child(t_micro *shell)
