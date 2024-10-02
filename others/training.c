@@ -6,7 +6,7 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/02 08:34:19 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/02 12:57:37 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/10/02 13:07:55 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -85,7 +85,7 @@ static size_t	ft_strlen(char *str)
 	const char	*end_str;
 
 	if (!str)
-		return (0x0);
+		return ((0x0));
 	end_str = str;
 	while (*end_str)
 		end_str++;
