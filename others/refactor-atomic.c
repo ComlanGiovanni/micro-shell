@@ -6,7 +6,7 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/02 08:34:19 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/02 09:35:59 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/10/02 09:42:07 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,9 +16,9 @@
 #include <stdlib.h>		// malloc, free, exit, EXIT_FAILURE, EXIT_SUCCESS
 #include <unistd.h>		// write,fork,execve,dup2,close,chdir,STDERR_FILENO
 
-#define IS_PIPE(str) (strcmp((str), PIPE) == 0)
-#define IS_CD(str) (strcmp((str), CHANGE_DIRECTORY) == 0)
-#define IS_SEMICOLON(str) (strcmp((str), SEMICOLON) == 0)
+#define FT_IS_PIPE(str) (strcmp((str), PIPE) == 0)
+#define FT_IS_CD(str) (strcmp((str), CHANGE_DIRECTORY) == 0)
+#define FT_IS_SEMICOLON(str) (strcmp((str), SEMICOLON) == 0)
 
 #define PIPE				"|"
 #define SEMICOLON			";"
@@ -65,17 +65,17 @@ struct s_micro
 	int		exit_code;
 };
 
-static bool	ft_is_pipe(char *str)
+static inline bool	ft_is_pipe(char *str)
 {
 	return (strcmp(str, PIPE));
 }
 
-static bool	ft_is_cd(char *str)
+static inline bool	ft_is_cd(char *str)
 {
 	return (strcmp(str, CHANGE_DIRECTORY));
 }
 
-static bool	ft_is_semicolon(char *str)
+static inline bool	ft_is_semicolon(char *str)
 {
 	return (strcmp(str, SEMICOLON));
 }
