@@ -6,7 +6,7 @@
 /*   By: gicomlan <gicomlan@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/10/02 08:34:19 by gicomlan          #+#    #+#             */
-/*   Updated: 2024/10/02 13:07:34 by gicomlan         ###   ########.fr       */
+/*   Updated: 2024/11/01 10:43:31 by gicomlan         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,7 @@
 // #define FT_IS_CD(str) (strcmp((str), CHANGE_DIRECTORY) == 0)
 // #define FT_IS_SEMICOLON(str) (strcmp((str), SEMICOLON) == 0)
 
+
 #define PIPE				"|"
 #define SEMICOLON			";"
 #define CHANGE_DIRECTORY	"cd"
@@ -27,20 +28,35 @@
 #define FATAL				"fatal"
 #define ERROR				"error: "
 #define CD_BAD_ARG			"bad arguments"
-#define EXECVE_FAIL			"cannot execute"
+#define EXECVE_FAIL			"cannot execute "
 #define CD_FAIL				"cannot change directory to "
 
-typedef enum e_pipes_fd	t_pipes_fds;
+#define ZERO				(0x0)
+#define NEXT_CMD			(0x1)
+#define SYSCALL_ERROR		-0x1
+#define INDEX_FIRST_ARG		(0x0)
+#define INDEX_SECOND_ARG	(0x1)
+#define CD_EXPECTED_ARGS	(0x2)
+
 typedef struct s_main	t_main;
 typedef struct s_micro	t_micro;
 typedef struct s_pipe	t_pipe;
 
+typedef enum e_pid		t_pid;
+typedef enum e_pipes_fd	t_pipes_fds;
+
+enum e_pid
+{
+	INVALID_PID = -(0x1),
+	CHILD_PID = ZERO
+};
+
 enum e_pipes_fd
 {
-	INVALID_FD = -1,
+	INVALID_FD = -(0x1),
 	PIPE_INPUT,
 	PIPE_OUTPUT,
-	FD_NUMBER,
+	FD_NUMBER
 };
 
 struct s_main
@@ -137,7 +153,6 @@ static inline bool	ft_is_semicolon(char *str)
 	return (!(strcmp(str, SEMICOLON)));
 }
 
-
 /**
  * @file micro-shell.c
  * @brief
@@ -162,7 +177,7 @@ static size_t	ft_strlen(char *str)
 	const char	*end_str;
 
 	if (!str)
-		return ((0x0));
+		return (ZERO);
 	end_str = str;
 	while (*end_str)
 		end_str++;
@@ -192,10 +207,9 @@ static size_t	ft_strlen(char *str)
 static void	ft_putstr_fd(char *str, int fd)
 {
 	if (str)
-		if (fd >= (0x0))
+		if (fd >= STDIN_FILENO)
 			write(fd, str, ft_strlen(str));
 }
-
 
 /**
  * @file micro-shell.c
@@ -337,8 +351,8 @@ static void	ft_init_pipe(t_pipe *pipe)
  */
 static void	ft_init_shell(t_micro *shell, int argc, char **argv, char **envp)
 {
-	shell->index = (0x0);
-	shell->pid = -1;
+	shell->index = ZERO;
+	shell->pid = INVALID_PID;
 	ft_init_pipe(&shell->pipe);
 	shell->exit_code = EXIT_SUCCESS;
 	ft_init_main(&shell->main, argc, argv, envp);
@@ -365,14 +379,14 @@ static void	ft_init_shell(t_micro *shell, int argc, char **argv, char **envp)
  */
 static int	ft_exec_cd(t_micro *shell)
 {
-	if (shell->index != (0x2))
+	if (shell->index != CD_EXPECTED_ARGS)
 	{
 		ft_error_mssg(ERROR, CD, CD_BAD_ARG, NULL);
 		return (EXIT_FAILURE);
 	}
-	if (chdir(shell->main.argv[(0x1)]) == -(0x1))
+	if (chdir(shell->main.argv[INDEX_SECOND_ARG]) == SYSCALL_ERROR)
 	{
-		ft_error_mssg(ERROR, CD, CD_FAIL, shell->main.argv[(0x1)]);
+		ft_error_mssg(ERROR, CD, CD_FAIL, shell->main.argv[INDEX_SECOND_ARG]);
 		return (EXIT_FAILURE);
 	}
 	return (EXIT_SUCCESS);
@@ -406,10 +420,10 @@ static void	ft_redirect_pipe(t_micro *shell, int direction)
 {
 	if (shell->pipe.is_pipe)
 	{
-		if (dup2(shell->pipe.pipes_fds[direction], direction) == -(0x1))
+		if (dup2(shell->pipe.pipes_fds[direction], direction) == INVALID_FD)
 			ft_exit_error(ERROR, FATAL, NULL);
-		if ((close(shell->pipe.pipes_fds[PIPE_INPUT]) == -(0x1)) || \
-			close(shell->pipe.pipes_fds[PIPE_OUTPUT]) == -(0x1))
+		if ((close(shell->pipe.pipes_fds[PIPE_INPUT]) == SYSCALL_ERROR) || \
+			close(shell->pipe.pipes_fds[PIPE_OUTPUT]) == SYSCALL_ERROR)
 			ft_exit_error(ERROR, FATAL, NULL);
 	}
 }
@@ -461,14 +475,15 @@ static void	ft_check_if_pipe(t_micro *shell)
  */
 static void	ft_exec_child(t_micro *shell)
 {
-	if (shell->pid == (0x0))
+	if (shell->pid == CHILD_PID)
 	{
 		shell->main.argv[shell->index] = NULL;
 		ft_redirect_pipe(shell, STDOUT_FILENO);
 		if (ft_is_cd(*shell->main.argv))
 			exit(ft_exec_cd(shell));
-		execve(shell->main.argv[(0x0)], shell->main.argv, shell->main.envp);
-		ft_exit_error(ERROR, EXECVE_FAIL, shell->main.argv[(0x0)]);
+		execve(shell->main.argv[INDEX_FIRST_ARG], \
+			shell->main.argv, shell->main.envp);
+		ft_exit_error(ERROR, EXECVE_FAIL, shell->main.argv[INDEX_FIRST_ARG]);
 	}
 }
 
@@ -500,13 +515,13 @@ static int	ft_exec_cmd(t_micro *shell)
 	ft_check_if_pipe(shell);
 	if (!shell->pipe.is_pipe && ft_is_cd(*shell->main.argv))
 		return (ft_exec_cd(shell));
-	if (shell->pipe.is_pipe && pipe(shell->pipe.pipes_fds) == -(0x1))
+	if (shell->pipe.is_pipe && pipe(shell->pipe.pipes_fds) == INVALID_FD)
 		ft_exit_error(ERROR, FATAL, NULL);
 	shell->pid = fork();
-	if (shell->pid == -(0x1))
+	if (shell->pid == INVALID_PID)
 		ft_exit_error(ERROR, FATAL, NULL);
 	ft_exec_child(shell);
-	waitpid(shell->pid, &shell->exit_code, (0x0));
+	waitpid(shell->pid, &shell->exit_code, ZERO);
 	ft_redirect_pipe(shell, STDIN_FILENO);
 	return (WIFEXITED(shell->exit_code) && WEXITSTATUS(shell->exit_code));
 }
@@ -540,8 +555,8 @@ int	main(int argc, char **argv, char **envp)
 	ft_init_shell(&shell, argc, argv, envp);
 	while (shell.main.argv[shell.index] != NULL)
 	{
-		shell.main.argv += shell.index + (0x1);
-		shell.index = (0x0);
+		shell.main.argv += shell.index + NEXT_CMD;
+		shell.index = ZERO;
 		while (shell.main.argv[shell.index] && \
 			!ft_is_pipe(shell.main.argv[shell.index]) && \
 				!ft_is_semicolon(shell.main.argv[shell.index]))
